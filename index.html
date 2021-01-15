@@ -1,0 +1,184 @@
+<body style="margin:0; display: flex; flex-direction: row">
+  <canvas id="p1" style="height: 100vh; border: 4px solid grey" ></canvas>
+  <canvas id="p2" style="height: 100vh; border: 4px solid grey" ></canvas>
+  <img id="rock" src="./rock1.png" style="display:none"/>
+  <script src="./util.js"> </script>
+  <script src="./keyboard.js"> </script>
+  <script src="./world.js"> </script>
+  <script src="./player.js"> </script>
+  <script src="./rock.js"> </script>
+  <script src="./app.js"> </script>
+  <script>
+    // what if two canvases, with different translate values to set camera positions, side-by-side?
+    // underlying radiuss could then all be fixed which avoids the mess of resizing objects
+    window.onload = function() {
+      const world = new World()
+
+      const player1 = new Player(world.generateSafePosition(), 'blue')
+      player1.velocity.x = randNormalDist(100, 20/defaultDeviations)
+      player1.velocity.y = randNormalDist(100, 20/defaultDeviations)
+      world.objects.push(player1)
+
+      const player2 = new Player(world.generateSafePosition(), 'red')
+      player2.velocity.x = randNormalDist(100, 20/defaultDeviations)
+      player2.velocity.y = randNormalDist(100, 20/defaultDeviations)
+      world.objects.push(player2)
+
+      let rocks = []
+      for (i = 0; i < 10; i++) {
+        const rock = new Rock(
+          randNormalDist(70, 30/defaultDeviations),
+          randNormalDist(0, 100),
+          world.generateSafePosition()
+        )
+        rock.velocity.x = randNormalDist(0, 100)
+        rock.velocity.y = randNormalDist(0, 100)
+        world.objects.push(rock)
+        rocks.push(rock)
+      }
+
+      let canvas = new OffscreenCanvas(world.width, world.height)
+      let ctx = canvas.getContext('2d')
+      let radius
+      let camera1 = document.getElementById('p1')
+      radius = camera1.getClientRects()[0]
+      camera1.width = radius.width
+      camera1.height = radius.height
+      let camera2 = document.getElementById('p2')
+      radius = camera2.getClientRects()[0]
+      camera2.width = radius.width
+      camera2.height = radius.height
+
+
+      let cam1ctx = camera1.getContext('2d')
+      let cam2ctx = camera2.getContext('2d')
+
+      let rock1 = document.getElementById('rock')
+      function drawRock({radius, position, rotation}) {
+        ctx.save()
+        // DRAW COLLISION BORDER
+        ctx.fillStyle = 'grey'
+        ctx.strokeStyle = 'green'
+        ctx.beginPath();
+        ctx.arc(
+          position.x,
+          position.y,
+          radius,
+          0, 2 * Math.PI, true
+        )
+        ctx.fill()
+        ctx.stroke()
+
+        // DRAW IMAGE
+        ctx.translate(position.x, position.y);
+        ctx.rotate((window.performance.now() / 1000) * rotation * Math.PI / 180);
+        ctx.translate(-radius ,-radius);
+        ctx.drawImage(rock1, 0, 0, radius*2, radius*2)
+        ctx.restore()
+      }
+
+      function drawPlayer(player) {
+        ctx.save()
+
+        // DRAW SHIELD
+        ctx.strokeStyle = player.color
+        ctx.lineWidth = 2
+        ctx.beginPath();
+        ctx.arc(
+          player.position.x,
+          player.position.y,
+          player.radius,
+          0, 2 * Math.PI, true
+        )
+        ctx.stroke()
+
+        // DRAW SHIP triangle
+        ctx.translate(player.position.x, player.position.y);
+        ctx.rotate(player.facing * Math.PI / 180);
+        ctx.fillStyle = player.color
+
+        ctx.beginPath();
+        ctx.moveTo(player.radius/-1.2, 0);
+        ctx.lineTo(player.radius/1.5, player.radius/2);
+        ctx.lineTo(player.radius/1.5, -player.radius/2);
+        ctx.fill();
+
+        ctx.restore()
+        if (player.grapplePoint) {
+          // TODO untested
+          ctx.save()
+          ctx.strokeStyle = player.color
+          ctx.beginPath();
+          ctx.moveTo(player.position.x, player.position.y);
+          ctx.lineTo(player.grapplePoint.x, player.grapplePoint.y);
+          ctx.stroke();
+          ctx.restore()
+        }
+
+      }
+
+      function drawCanvas() {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        rocks.map(drawRock)
+        drawPlayer(player1)
+        drawPlayer(player2)
+        world.starfield.forEach(({x,y,radius,hue,sat}) => {
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, 360);
+          ctx.fillStyle = "hsl(" + hue + ", " + sat + "%, 88%)";
+          ctx.fill();
+        })
+
+
+        cam1ctx.fillStyle = '#333';
+        cam1ctx.fillRect(0, 0, camera1.width, camera1.height);
+        cam1ctx.drawImage(
+          canvas,
+          // center camera on player
+          player1.position.x - (camera1.width / 2),
+          player1.position.y - (camera1.height / 2),
+          camera1.width,
+          camera1.height,
+          0,0,camera1.width,camera1.height
+        )
+
+        cam2ctx.fillStyle = '#333';
+        cam2ctx.fillRect(0, 0, camera2.width, camera2.height);
+        cam2ctx.drawImage(
+          canvas,
+          // center camera on player
+          player2.position.x - (camera2.width / 2),
+          player2.position.y - (camera2.height / 2),
+          camera2.width,
+          camera2.height,
+          0,0,camera2.width,camera2.height
+        )
+      }
+
+
+      function step(time) {
+        // mutate the state by 'time'
+        world.step(time)
+
+        player1.accelerate({
+          forward: consumeKey('s') - consumeKey('w'),
+          rotate: consumeKey('d') - consumeKey('a'),
+        })
+        player2.accelerate({
+          forward: consumeKey('k') - consumeKey('i'),
+          rotate: consumeKey('j') - consumeKey('l'),
+        })
+      }
+
+      (function loop(prevMs) {
+        const nowMs = window.performance.now();
+        requestAnimationFrame(loop.bind(null, nowMs));
+        const deltaMs = nowMs-prevMs;
+        step(deltaMs);
+        drawCanvas();
+      })(window.performance.now())
+    }
+
+  </script>
+</body>
