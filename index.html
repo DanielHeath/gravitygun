@@ -57,17 +57,19 @@
       function drawRock({radius, position, rotation}) {
         ctx.save()
         // DRAW COLLISION BORDER
-        ctx.fillStyle = 'grey'
-        ctx.strokeStyle = 'green'
-        ctx.beginPath();
-        ctx.arc(
-          position.x,
-          position.y,
-          radius,
-          0, 2 * Math.PI, true
-        )
-        ctx.fill()
-        ctx.stroke()
+        if (world.debug) {
+          ctx.fillStyle = 'grey'
+          ctx.strokeStyle = 'green'
+          ctx.beginPath();
+          ctx.arc(
+            position.x,
+            position.y,
+            radius,
+            0, 2 * Math.PI, true
+          )
+          ctx.fill()
+          ctx.stroke()
+        }
 
         // DRAW IMAGE
         ctx.translate(position.x, position.y);
@@ -94,7 +96,7 @@
 
         // DRAW SHIP triangle
         ctx.translate(player.position.x, player.position.y);
-        ctx.rotate(player.facing * Math.PI / 180);
+        ctx.rotate(player.facing);
         ctx.fillStyle = player.color
 
         ctx.beginPath();
@@ -125,7 +127,7 @@
         drawPlayer(player2)
         world.starfield.forEach(({x,y,radius,hue,sat}) => {
           ctx.beginPath();
-          ctx.arc(x, y, radius, 0, 360);
+          ctx.arc(x, y, radius, 0, 2 * Math.PI);
           ctx.fillStyle = "hsl(" + hue + ", " + sat + "%, 88%)";
           ctx.fill();
         })
@@ -161,13 +163,15 @@
         // mutate the state by 'time'
         world.step(time)
 
-        player1.accelerate({
-          forward: consumeKey('s') - consumeKey('w'),
+        player1.act({
+          forward: consumeKey('w')- consumeKey('s'),
           rotate: consumeKey('d') - consumeKey('a'),
+          grapple: consumeKey('q')
         })
-        player2.accelerate({
-          forward: consumeKey('k') - consumeKey('i'),
-          rotate: consumeKey('j') - consumeKey('l'),
+        player2.act({
+          forward: consumeKey('i')- consumeKey('k'),
+          rotate: consumeKey('l') - consumeKey('j'),
+          grapple: consumeKey('u')
         })
       }
 

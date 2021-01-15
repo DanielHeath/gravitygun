@@ -47,6 +47,9 @@ function addVec(v1, v2) {
     y: v1.y + v2.y,
   }
 }
+function magnitude(v) {
+  return Math.sqrt(v.x**2, v.y**2)
+}
 
 function collisionVelocities(m1, m2, u1, u2) {
   const v1 = addVec(mulVec((m1 - m2)/(m1+m2), u1), mulVec((2*m2)/(m1+m2), u2))
