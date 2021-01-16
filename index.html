@@ -7,6 +7,7 @@
   <script src="./world.js"> </script>
   <script src="./player.js"> </script>
   <script src="./rock.js"> </script>
+  <script src="./pickup.js"> </script>
   <script src="./app.js"> </script>
   <script>
     // what if two canvases, with different translate values to set camera positions, side-by-side?
@@ -15,13 +16,9 @@
       const world = new World()
 
       const player1 = new Player(world.generateSafePosition(), 'blue')
-      // player1.velocity.x = randNormalDist(100, 20/defaultDeviations)
-      // player1.velocity.y = randNormalDist(100, 20/defaultDeviations)
       world.objects.push(player1)
 
       const player2 = new Player(world.generateSafePosition(), 'red')
-      // player2.velocity.x = randNormalDist(100, 20/defaultDeviations)
-      // player2.velocity.y = randNormalDist(100, 20/defaultDeviations)
       world.objects.push(player2)
 
       let rocks = []
@@ -31,11 +28,14 @@
           randNormalDist(0, 100),
           world.generateSafePosition()
         )
-        rock.velocity.x = randNormalDist(0, 100)
-        rock.velocity.y = randNormalDist(0, 100)
+        rock.velocity.x = randNormalDist(0, 10)
+        rock.velocity.y = randNormalDist(0, 10)
         world.objects.push(rock)
         rocks.push(rock)
       }
+
+      world.objects.push(new Pickup(world.generateSafePosition(), 'gravitygun'))
+
 
       let canvas = new OffscreenCanvas(world.width, world.height)
       let ctx = canvas.getContext('2d')
@@ -52,81 +52,6 @@
 
       let cam1ctx = camera1.getContext('2d')
       let cam2ctx = camera2.getContext('2d')
-
-      let rock1 = document.getElementById('rock')
-      function drawRock({radius, position, rotation}) {
-        ctx.save()
-        // DRAW COLLISION BORDER
-        if (world.debug) {
-          ctx.fillStyle = 'grey'
-          ctx.strokeStyle = 'green'
-          ctx.beginPath();
-          ctx.arc(
-            position.x,
-            position.y,
-            radius,
-            0, 2 * Math.PI, true
-          )
-          ctx.fill()
-          ctx.stroke()
-        }
-
-        // DRAW IMAGE
-        ctx.translate(position.x, position.y);
-        ctx.rotate((window.performance.now() / 1000) * rotation * Math.PI / 180);
-        ctx.translate(-radius ,-radius);
-        ctx.drawImage(rock1, 0, 0, radius*2, radius*2)
-        ctx.restore()
-      }
-
-      function drawPlayer(player) {
-        if (!player.alive) {
-          return
-        }
-
-        ctx.save()
-
-        if (player.shieldCapacity > 0) {
-          // DRAW SHIELD
-          ctx.strokeStyle = player.color
-          if (Math.random() > (player.shieldCapacity / player.shieldCapacityMax)) {
-            ctx.strokeStyle = '#222'
-          }
-          ctx.lineWidth = 2
-          ctx.beginPath();
-          ctx.arc(
-            player.position.x,
-            player.position.y,
-            player.radius,
-            0, 2 * Math.PI, true
-          )
-          ctx.stroke()
-        }
-
-        // DRAW SHIP triangle
-        ctx.translate(player.position.x, player.position.y);
-        ctx.rotate(player.facing);
-        ctx.fillStyle = player.color
-
-        ctx.beginPath();
-        ctx.moveTo(player.radius/-1.2, 0);
-        ctx.lineTo(player.radius/1.5, player.radius/2);
-        ctx.lineTo(player.radius/1.5, -player.radius/2);
-        ctx.fill();
-
-        ctx.restore()
-        if (player.grapplePoint) {
-          // TODO untested
-          ctx.save()
-          ctx.strokeStyle = player.color
-          ctx.beginPath();
-          ctx.moveTo(player.position.x, player.position.y);
-          ctx.lineTo(player.grapplePoint.x, player.grapplePoint.y);
-          ctx.stroke();
-          ctx.restore()
-        }
-
-      }
 
       let deathJitter = 1;
       function drawPlayerCanvas(camera, ctx, player) {
@@ -184,9 +109,17 @@
       function drawCanvas() {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        rocks.map(drawRock)
-        drawPlayer(player1)
-        drawPlayer(player2)
+        ctx.save()
+        world.objects.forEach((object) => {
+          if (object.draw) {
+            ctx.save()
+            object.draw(ctx, world)
+            ctx.restore()
+          }
+        })
+
+        ctx.restore()
+
         world.starfield.forEach(({x,y,radius,hue,sat}) => {
           ctx.beginPath();
           ctx.arc(x, y, radius, 0, 2 * Math.PI);

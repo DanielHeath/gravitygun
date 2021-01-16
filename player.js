@@ -1,3 +1,4 @@
+const pendingDamageDrainFactor = 1.0
 class Player {
   constructor(position, color, ) {
     this.position = position
@@ -10,17 +11,17 @@ class Player {
     this.mass = 8
 
     this.alive = true
-    this.shieldCapacityMax = 40000
+    this.shieldCapacityMax = 400
     this.shieldCapacity = this.shieldCapacityMax
-    this.shieldDamageReduction = 4000
+    this.shieldDamageReduction = 10
     this.pendingDamage = 0
 
     // True if should render a shield flash
     this.renderShieldDamage = 0
   }
 
-  receiveHitWithImpulse(impulseMagnitude, elasticity) {
-    let hitEnergyLoss = (impulseMagnitude/elasticity) * (1-elasticity)
+  receiveHitWithImpulse(impulseMagnitude, elasticity, collVelocity) {
+    let hitEnergyLoss = (impulseMagnitude/elasticity) * (1-elasticity) / collVelocity
     if (this.shieldCapacity > 0) {
       hitEnergyLoss -= this.shieldDamageReduction
     } else {
@@ -31,8 +32,60 @@ class Player {
     if (hitEnergyLoss < 0) {
       return
     }
-    console.log(impulseMagnitude, elasticity, hitEnergyLoss)
     this.pendingDamage += hitEnergyLoss
+  }
+  draw(ctx, world) {
+    if (!this.alive) {
+      return
+    }
+
+    ctx.save()
+
+    if (this.shieldCapacity > 0) {
+      // DRAW SHIELD
+      ctx.strokeStyle = this.color
+      if (Math.random() > (this.shieldCapacity / this.shieldCapacityMax)) {
+        ctx.strokeStyle = '#222'
+      }
+      if (this.renderShieldDamage) {
+        console.log(this.renderShieldDamage)
+        ctx.strokeStyle = 'white'
+      }
+      ctx.lineWidth = 2
+      ctx.beginPath();
+      ctx.arc(
+        this.position.x,
+        this.position.y,
+        this.radius,
+        0, 2 * Math.PI, true
+      )
+      ctx.stroke()
+    }
+
+    // DRAW SHIP triangle
+    ctx.translate(this.position.x, this.position.y);
+    ctx.rotate(this.facing);
+    ctx.fillStyle = this.color
+
+    ctx.beginPath();
+    ctx.moveTo(this.radius/-1.2, 0);
+    ctx.lineTo(this.radius/1.5, this.radius/2);
+    ctx.lineTo(this.radius/1.5, -this.radius/2);
+    ctx.fill();
+
+    ctx.restore()
+    if (this.grapplePoint) {
+      // TODO untested
+      ctx.save()
+      ctx.strokeStyle = this.color
+      ctx.beginPath();
+      ctx.moveTo(this.position.x, this.position.y);
+      ctx.lineTo(this.grapplePoint.x, this.grapplePoint.y);
+      ctx.stroke();
+      ctx.restore()
+    }
+
+
   }
 
   step(ms, {forward, rotate, grapple}) {
@@ -48,11 +101,14 @@ class Player {
       this.renderShieldDamage = 0
     }
 
-    if (this.pendingDamage > (ms*100)) {
-      this.pendingDamage -= (ms*100)
-      this.shieldCapacity -= (ms*100)
-      // 10-ish frames of damage, for each ~1600 damage taken.
-      this.renderShieldDamage += (ms * 10)
+    if (this.pendingDamage > 0) {
+      let drainThisFrame = ms * pendingDamageDrainFactor
+      if (this.pendingDamage < drainThisFrame) {
+        drainThisFrame = this.pendingDamage
+      }
+      this.pendingDamage -= drainThisFrame
+      this.shieldCapacity -= drainThisFrame
+      this.renderShieldDamage += drainThisFrame * (this.shieldCapacityMax / 4)
     }
 
     if (grapple) {

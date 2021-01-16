@@ -85,3 +85,7 @@ function parallelComponent(v1, direction) {
   // return mulVec(dotproduct(v1, ud) / (magnitude(v1) ** 2), v1)
   return mulVec(magnitude(v1) * Math.cos(theta), ud)
 }
+
+function uniq(ary) {
+  return ary.filter((i, idx) => ary.indexOf(i) === idx)
+}

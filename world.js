@@ -44,6 +44,7 @@ class World {
   }
 
   step(ms) {
+    const deleteList = []
     this.objects.forEach((object, idx) => {
       if (object.velocity) {
         // Check for 'out of bounds' collision.
@@ -55,55 +56,55 @@ class World {
         const radius = object.radius || 0
         const collider = this.objects.slice(idx+1).find((other) => distance(nextPos, other) < 0)
         if (collider) {
-          // if (this.speed(object.velocity) > 100) {
-          //   alert('crash')
-          // }
-          // console.log('collision', object, collider, this.speed(object.velocity))
+          // handle pickups!
+          if (object instanceof Pickup && collider.getPickup) {
+            collider.getPickup(object)
+            deleteList.push(idx)
+          }
+          if (collider instanceof Pickup && object.getPickup) {
+            object.getPickup(collider)
+            deleteList.push(this.objects.indexOf(collider))
+          }
+          if (!(collider.ignoresCollisions || object.ignoresCollisions)) {
+            let normal = collisionNormal(object.position, collider.position)
+            let pc = parallelComponent(_collisionVelocity(object.velocity, collider.velocity), normal)
 
-          // Reverse velocity. TODO: a glancing crash should ricochet off
-          // need to know how far off-centre it is for that to work.
+            // perfect elasticity.
+            let elasticity = 0.5
 
-          // collided!
-          // collision angle:
-          // collisionNormal(object.position, collider.position)
-          // let {v1, v2} = collisionVelocities(object.mass, collider.mass, object.velocity, collider.velocity)
+            // The collision causes an impulse (a near-infinite force applied over a nearzero time)
+            // such that the energy imparted is enough to stop (and then reflect, * 'e' elasticity)
+            // both objects along the parallel component.
+            let objectShareOfImpulse = (object.mass / (object.mass+collider.mass))
+            let colliderShareOfImpulse = (collider.mass / (object.mass+collider.mass))
+            let impulseMagnitude = elasticity*magnitude(pc)*(object.mass + collider.mass)
 
-          let normal = collisionNormal(object.position, collider.position)
-          let pc = parallelComponent(_collisionVelocity(object.velocity, collider.velocity), normal)
+            let collVelocity = magnitude(_collisionVelocity(object.velocity, collider.velocity))
+            object.receiveHitWithImpulse && object.receiveHitWithImpulse(impulseMagnitude, elasticity, collVelocity)
+            collider.receiveHitWithImpulse && collider.receiveHitWithImpulse(impulseMagnitude, elasticity, collVelocity)
 
-          // perfect elasticity.
-          let elasticity = 0.5
+            let objectVecChange = mulVec(impulseMagnitude/object.mass, toUnitVec(normal))
+            let colliderVecChange = mulVec(impulseMagnitude/collider.mass, toUnitVec(normal))
 
-          // The collision causes an impulse (a near-infinite force applied over a nearzero time)
-          // such that the energy imparted is enough to stop (and then reflect, * 'e' elasticity)
-          // both objects along the parallel component.
-          let objectShareOfImpulse = (object.mass / (object.mass+collider.mass))
-          let colliderShareOfImpulse = (collider.mass / (object.mass+collider.mass))
-          let impulseMagnitude = elasticity*magnitude(pc)*(object.mass + collider.mass)
+            let combinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
+            let objectWas = object.velocity
+            let colliderWas = collider.velocity
+            console.log('adjusting here')
+            object.velocity = addVec(object.velocity, objectVecChange)
+            collider.velocity = addVec(collider.velocity, mulVec(-1, colliderVecChange))
 
-          object.receiveHitWithImpulse && object.receiveHitWithImpulse(impulseMagnitude, elasticity)
-          collider.receiveHitWithImpulse && collider.receiveHitWithImpulse(impulseMagnitude, elasticity)
-
-          let objectVecChange = mulVec(impulseMagnitude/object.mass, toUnitVec(normal))
-          let colliderVecChange = mulVec(impulseMagnitude/collider.mass, toUnitVec(normal))
-
-          let combinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
-          let objectWas = object.velocity
-          let colliderWas = collider.velocity
-          object.velocity = addVec(object.velocity, objectVecChange)
-          collider.velocity = addVec(collider.velocity, mulVec(-1, colliderVecChange))
-
-          if (this.debug) {
-            console.table([
-              {mass: object.mass, radius: object.radius, prevx: objectWas.x, x: object.velocity.x, prevy: objectWas.y, y: object.velocity.y},
-              {mass: collider.mass, radius: collider.radius, prevx: colliderWas.x, x: collider.velocity.x, prevy: colliderWas.y, y: collider.velocity.y},
-            ])
-            let newCombinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
-            if (Math.abs(combinedMomentum.x - newCombinedMomentum.x) > 0.0001) {
-              debugger
-            }
-            if (Math.abs(combinedMomentum.y - newCombinedMomentum.y) > 0.0001) {
-              debugger
+            if (this.debug) {
+              console.table([
+                {mass: object.mass, radius: object.radius, prevx: objectWas.x, x: object.velocity.x, prevy: objectWas.y, y: object.velocity.y},
+                {mass: collider.mass, radius: collider.radius, prevx: colliderWas.x, x: collider.velocity.x, prevy: colliderWas.y, y: collider.velocity.y},
+              ])
+              let newCombinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
+              if (Math.abs(combinedMomentum.x - newCombinedMomentum.x) > 0.0001) {
+                debugger
+              }
+              if (Math.abs(combinedMomentum.y - newCombinedMomentum.y) > 0.0001) {
+                debugger
+              }
             }
           }
 
@@ -133,6 +134,9 @@ class World {
         object.position = nextPos
       }
     })
+
+    uniq(deleteList).sort(cmpNum).reverse().forEach((idx) => this.objects.splice(idx, 1))
   }
 
 }
+
