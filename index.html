@@ -4,6 +4,7 @@
   <img id="rock" src="./rock1.png" style="display:none"/>
   <script src="./util.js"> </script>
   <script src="./keyboard.js"> </script>
+  <script src="./tracking_camera.js"> </script>
   <script src="./world.js"> </script>
   <script src="./player.js"> </script>
   <script src="./rock.js"> </script>
@@ -36,72 +37,18 @@
 
       let canvas = new OffscreenCanvas(world.width, world.height)
       let ctx = canvas.getContext('2d')
-      let radius
-      let camera1 = document.getElementById('p1')
-      radius = camera1.getClientRects()[0]
-      camera1.width = radius.width
-      camera1.height = radius.height
-      let camera2 = document.getElementById('p2')
-      radius = camera2.getClientRects()[0]
-      camera2.width = radius.width
-      camera2.height = radius.height
 
+      let camera1 = new TrackingCamera({
+        source: canvas,
+        dest: document.getElementById('p1'),
+        player: player1
+      })
 
-      let cam1ctx = camera1.getContext('2d')
-      let cam2ctx = camera2.getContext('2d')
-
-      let deathJitter = 1;
-      function drawPlayerCanvas(camera, ctx, player) {
-        const healthBarBorder = 30
-        let widthfraction
-
-        ctx.fillStyle = '#333';
-        ctx.fillRect(0, 0, camera.width, camera.height);
-        ctx.drawImage(
-          canvas,
-          // center camera on player
-          player.position.x - (camera.width / 2),
-          player.position.y - (camera.height / 2),
-          camera.width,
-          camera.height,
-          0,0,camera.width,camera.height
-        )
-
-        // draw loss text
-        if (!player.alive) {
-          ctx.fillStyle='white'
-          ctx.font = 'bold 48px serif';
-          deathJitter += Math.random() > 0.7 ? 1 : -1
-          if (deathJitter > 20) {
-            deathJitter = 20
-          }
-          if (deathJitter < 0) {
-            deathJitter = 2
-          }
-          ctx.fillText(
-            "YOU DIED",
-            camera.width / 2 + (deathJitter-Math.random()*2*deathJitter),
-            camera.height / 2 + (deathJitter-Math.random()*2*deathJitter)
-          )
-        } else if (player.shieldCapacity <= 0) {
-          // draw health bar
-          ctx.strokeStyle = player.color;
-          if (Math.random() > 0.5) {
-            ctx.strokeStyle = '#ddd';
-          }
-          ctx.strokeRect(healthBarBorder, healthBarBorder, camera.width - 2 * healthBarBorder, healthBarBorder);
-        } else {
-          ctx.strokeStyle = player.color;
-          ctx.strokeRect(healthBarBorder, healthBarBorder, camera.width - 2 * healthBarBorder, healthBarBorder);
-
-          ctx.fillStyle = player.color;
-          widthfraction = player.shieldCapacity / player.shieldCapacityMax;
-          ctx.fillRect(
-            healthBarBorder, healthBarBorder,
-            widthfraction*(camera.width-healthBarBorder-healthBarBorder), healthBarBorder
-          );
-        }
-      }
+      let camera2 = new TrackingCamera({
+        source: canvas,
+        dest: document.getElementById('p2'),
+        player: player2
+      })
 
       function drawCanvas() {
         ctx.fillStyle = '#000';
@@ -124,8 +71,8 @@
           ctx.fill();
         })
 
-        drawPlayerCanvas(camera1, cam1ctx, player1)
-        drawPlayerCanvas(camera2, cam2ctx, player2)
+        camera1.draw()
+        camera2.draw()
       }
 
       function step(time) {
