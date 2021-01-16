@@ -7,6 +7,7 @@ class World {
     this.objects = []
     this.starfield = []
     this.debug = true
+    this.deleteList = []
 
     const stars = 500
     const colorrange = [0,60,240];
@@ -21,7 +22,10 @@ class World {
         x, y, radius, hue, sat
       })
     }
+  }
 
+  spawnPickup(type) {
+    this.objects.push(new Pickup(this.generateSafePosition(), type))
   }
 
   generateSafePosition() {
@@ -44,8 +48,11 @@ class World {
   }
 
   step(ms) {
-    const deleteList = []
+    this.deleteList = []
     this.objects.forEach((object, idx) => {
+      if (object.step) {
+        object.step(ms, this)
+      }
       if (object.velocity) {
         // Check for 'out of bounds' collision.
         let nextPos = {
@@ -59,11 +66,11 @@ class World {
           // handle pickups!
           if (object instanceof Pickup && collider.getPickup) {
             collider.getPickup(object)
-            deleteList.push(idx)
+            this.deleteList.push(object)
           }
           if (collider instanceof Pickup && object.getPickup) {
             object.getPickup(collider)
-            deleteList.push(this.objects.indexOf(collider))
+            this.deleteList.push(collider)
           }
           if (!(collider.ignoresCollisions || object.ignoresCollisions)) {
             let normal = collisionNormal(object.position, collider.position)
@@ -89,23 +96,22 @@ class World {
             let combinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
             let objectWas = object.velocity
             let colliderWas = collider.velocity
-            console.log('adjusting here')
             object.velocity = addVec(object.velocity, objectVecChange)
             collider.velocity = addVec(collider.velocity, mulVec(-1, colliderVecChange))
 
-            if (this.debug) {
-              console.table([
-                {mass: object.mass, radius: object.radius, prevx: objectWas.x, x: object.velocity.x, prevy: objectWas.y, y: object.velocity.y},
-                {mass: collider.mass, radius: collider.radius, prevx: colliderWas.x, x: collider.velocity.x, prevy: colliderWas.y, y: collider.velocity.y},
-              ])
-              let newCombinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
-              if (Math.abs(combinedMomentum.x - newCombinedMomentum.x) > 0.0001) {
-                debugger
-              }
-              if (Math.abs(combinedMomentum.y - newCombinedMomentum.y) > 0.0001) {
-                debugger
-              }
-            }
+            // if (this.debug) {
+            //   console.table([
+            //     {mass: object.mass, radius: object.radius, prevx: objectWas.x, x: object.velocity.x, prevy: objectWas.y, y: object.velocity.y},
+            //     {mass: collider.mass, radius: collider.radius, prevx: colliderWas.x, x: collider.velocity.x, prevy: colliderWas.y, y: collider.velocity.y},
+            //   ])
+            //   let newCombinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
+            //   if (Math.abs(combinedMomentum.x - newCombinedMomentum.x) > 0.0001) {
+            //     debugger
+            //   }
+            //   if (Math.abs(combinedMomentum.y - newCombinedMomentum.y) > 0.0001) {
+            //     debugger
+            //   }
+            // }
           }
 
           nextPos = {
@@ -135,7 +141,13 @@ class World {
       }
     })
 
-    uniq(deleteList).sort(cmpNum).reverse().forEach((idx) => this.objects.splice(idx, 1))
+    this.deleteList.forEach((object) => {
+      const idx = this.objects.indexOf(object)
+      if (idx > -1) {
+        this.objects.splice(idx, 1)
+      }
+    })
+    this.deleteList = []
   }
 
 }

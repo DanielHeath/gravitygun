@@ -4,7 +4,7 @@ class Player {
     this.position = position
     this.color = color
     this.facing = Math.PI * Math.random()
-    this.holding = null
+    this.holding = Pickup.gravitygun
     this.grapplePoint = null
     this.radius = 55
     this.velocity = {x: 0, y: 0}
@@ -13,7 +13,7 @@ class Player {
     this.alive = true
     this.shieldCapacityMax = 400
     this.shieldCapacity = this.shieldCapacityMax
-    this.shieldDamageReduction = 10
+    this.shieldDamageReduction = 2
     this.pendingDamage = 0
 
     // True if should render a shield flash
@@ -33,6 +33,7 @@ class Player {
       this.alive = false
     }
 
+    console.log(arguments, hitEnergyLoss)
     if (hitEnergyLoss < 0) {
       return
     }
@@ -51,7 +52,6 @@ class Player {
         ctx.strokeStyle = '#222'
       }
       if (this.renderShieldDamage) {
-        console.log(this.renderShieldDamage)
         ctx.strokeStyle = 'white'
       }
       ctx.lineWidth = 2
@@ -76,7 +76,7 @@ class Player {
     ctx.lineTo(this.radius/1.5, -this.radius/2);
     ctx.fill();
 
-    if (this.holding === "gravitygun") {
+    if (this.holding === Pickup.gravitygun) {
       ctx.fillStyle = 'white'
 
       ctx.beginPath();
@@ -98,7 +98,7 @@ class Player {
     }
   }
 
-  step(ms, {forward, rotate, grapple, gravgun}) {
+  step(ms, world) {
     if (!this.alive) {
       this.velocity.x = 0
       this.velocity.y = 0
@@ -121,11 +121,25 @@ class Player {
       this.renderShieldDamage += drainThisFrame * (this.shieldCapacityMax / 4)
     }
 
+  }
+
+  act({forward, rotate, grapple, gravgun, world}) {
     if (grapple) {
       // TODO: Spawn a player-owned 'grappler' entity into the world.
       // It has a 'sticky' collision behavior. If it hits a non-sticky object,
       // it makes that object the grapplePoint of the player.
 
+    }
+    if (gravgun) {
+      if (this.holding === Pickup.gravitygun) {
+        this.holding = ""
+        world.objects.push(new GravityBeacon(
+          this.position,
+          this.facing,
+          this.velocity,
+          [this]
+        ))
+      }
     }
     this.facing = this.facing + (rotate / 180)
     if (this.facing > 2 * Math.PI) {

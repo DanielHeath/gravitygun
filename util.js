@@ -41,12 +41,22 @@ function mulVec(scalar, vector) {
     y: vector.y*scalar
   }
 }
+
 function addVec(v1, v2) {
   return {
     x: v1.x + v2.x,
     y: v1.y + v2.y,
   }
 }
+function subVec(p1, p2) {
+  return {
+    x: (p1.x-p2.x),
+    y: (p1.y-p2.y)
+  }
+}
+
+// for circles; straight side collisions are way harder.
+const collisionNormal = subVec
 
 function magnitude(v) {
   return Math.sqrt(v.x**2 + v.y**2)
@@ -66,15 +76,18 @@ function collisionVelocities(m1, m2, u1, u2) {
   return {v1, v2}
 }
 
-// for circles; straight side collisions are way harder.
-function collisionNormal(p1, p2) {
+function facingToUnitVec(facing) {
   return {
-    x: (p1.x-p2.x),
-    y: (p1.y-p2.y)
+    x: -1 * Math.cos(facing),
+    y: -1 * Math.sin(facing),
   }
 }
-
 function toUnitVec(v1) {
+  if (v1.x == 0 && v1.y == 0) {
+    debugger
+    throw new Error("Cannot convert null vector to unit vec")
+  }
+
   return mulVec(1/magnitude(v1), v1)
 }
 

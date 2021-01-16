@@ -9,6 +9,7 @@
   <script src="./player.js"> </script>
   <script src="./rock.js"> </script>
   <script src="./pickup.js"> </script>
+  <script src="./gravitybeacon.js"> </script>
   <script src="./app.js"> </script>
   <script>
     // what if two canvases, with different translate values to set camera positions, side-by-side?
@@ -27,7 +28,7 @@
         world.objects.push(rock)
       }
 
-      world.objects.push(new Pickup(world.generateSafePosition(), 'gravitygun'))
+      world.spawnPickup(Pickup.gravitygun)
 
       const player1 = new Player(world.generateSafePosition(), 'blue')
       world.objects.push(player1)
@@ -53,7 +54,6 @@
       function drawCanvas() {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.save()
         world.objects.forEach((object) => {
           if (object.draw) {
             ctx.save()
@@ -61,8 +61,6 @@
             ctx.restore()
           }
         })
-
-        ctx.restore()
 
         world.starfield.forEach(({x,y,radius,hue,sat}) => {
           ctx.beginPath();
@@ -76,21 +74,22 @@
       }
 
       function step(time) {
-        // mutate the state by 'time'
-        world.step(time)
-
-        player1.step(time, {
+        // Move state forward by 'time'
+        player1.act({
           forward: consumeKey('w')- consumeKey('s'),
           rotate: consumeKey('d') - consumeKey('a'),
           grapple: consumeKey('q'),
           gravgun: consumeKey('e'),
+          world
         })
-        player2.step(time, {
+        player2.act({
           forward: consumeKey('i')- consumeKey('k'),
           rotate: consumeKey('l') - consumeKey('j'),
           grapple: consumeKey('u'),
           gravgun: consumeKey('o'),
+          world
         })
+        world.step(time)
       }
 
       (function loop(prevMs) {
