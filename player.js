@@ -20,6 +20,10 @@ class Player {
     this.renderShieldDamage = 0
   }
 
+  getPickup(pickup) {
+    this.holding = pickup.type
+  }
+
   receiveHitWithImpulse(impulseMagnitude, elasticity, collVelocity) {
     let hitEnergyLoss = (impulseMagnitude/elasticity) * (1-elasticity) / collVelocity
     if (this.shieldCapacity > 0) {
@@ -34,12 +38,11 @@ class Player {
     }
     this.pendingDamage += hitEnergyLoss
   }
+
   draw(ctx, world) {
     if (!this.alive) {
       return
     }
-
-    ctx.save()
 
     if (this.shieldCapacity > 0) {
       // DRAW SHIELD
@@ -73,6 +76,15 @@ class Player {
     ctx.lineTo(this.radius/1.5, -this.radius/2);
     ctx.fill();
 
+    if (this.holding === "gravitygun") {
+      ctx.fillStyle = 'white'
+
+      ctx.beginPath();
+      ctx.moveTo(this.radius/-1.2, 0);
+      ctx.lineTo(this.radius/4.5, this.radius/2);
+      ctx.lineTo(this.radius/4.5, -this.radius/2);
+      ctx.fill();
+    }
     ctx.restore()
     if (this.grapplePoint) {
       // TODO untested
@@ -84,11 +96,9 @@ class Player {
       ctx.stroke();
       ctx.restore()
     }
-
-
   }
 
-  step(ms, {forward, rotate, grapple}) {
+  step(ms, {forward, rotate, grapple, gravgun}) {
     if (!this.alive) {
       this.velocity.x = 0
       this.velocity.y = 0

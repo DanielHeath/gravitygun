@@ -15,13 +15,6 @@
     window.onload = function() {
       const world = new World()
 
-      const player1 = new Player(world.generateSafePosition(), 'blue')
-      world.objects.push(player1)
-
-      const player2 = new Player(world.generateSafePosition(), 'red')
-      world.objects.push(player2)
-
-      let rocks = []
       for (i = 0; i < 10; i++) {
         const rock = new Rock(
           randNormalDist(70, 30/defaultDeviations),
@@ -31,11 +24,15 @@
         rock.velocity.x = randNormalDist(0, 10)
         rock.velocity.y = randNormalDist(0, 10)
         world.objects.push(rock)
-        rocks.push(rock)
       }
 
       world.objects.push(new Pickup(world.generateSafePosition(), 'gravitygun'))
 
+      const player1 = new Player(world.generateSafePosition(), 'blue')
+      world.objects.push(player1)
+
+      const player2 = new Player(world.generateSafePosition(), 'red')
+      world.objects.push(player2)
 
       let canvas = new OffscreenCanvas(world.width, world.height)
       let ctx = canvas.getContext('2d')
@@ -138,12 +135,14 @@
         player1.step(time, {
           forward: consumeKey('w')- consumeKey('s'),
           rotate: consumeKey('d') - consumeKey('a'),
-          grapple: consumeKey('q')
+          grapple: consumeKey('q'),
+          gravgun: consumeKey('e'),
         })
         player2.step(time, {
           forward: consumeKey('i')- consumeKey('k'),
           rotate: consumeKey('l') - consumeKey('j'),
-          grapple: consumeKey('u')
+          grapple: consumeKey('u'),
+          gravgun: consumeKey('o'),
         })
       }
 
