@@ -15,13 +15,13 @@
       const world = new World()
 
       const player1 = new Player(world.generateSafePosition(), 'blue')
-      player1.velocity.x = randNormalDist(100, 20/defaultDeviations)
-      player1.velocity.y = randNormalDist(100, 20/defaultDeviations)
+      // player1.velocity.x = randNormalDist(100, 20/defaultDeviations)
+      // player1.velocity.y = randNormalDist(100, 20/defaultDeviations)
       world.objects.push(player1)
 
       const player2 = new Player(world.generateSafePosition(), 'red')
-      player2.velocity.x = randNormalDist(100, 20/defaultDeviations)
-      player2.velocity.y = randNormalDist(100, 20/defaultDeviations)
+      // player2.velocity.x = randNormalDist(100, 20/defaultDeviations)
+      // player2.velocity.y = randNormalDist(100, 20/defaultDeviations)
       world.objects.push(player2)
 
       let rocks = []
@@ -80,19 +80,28 @@
       }
 
       function drawPlayer(player) {
+        if (!player.alive) {
+          return
+        }
+
         ctx.save()
 
-        // DRAW SHIELD
-        ctx.strokeStyle = player.color
-        ctx.lineWidth = 2
-        ctx.beginPath();
-        ctx.arc(
-          player.position.x,
-          player.position.y,
-          player.radius,
-          0, 2 * Math.PI, true
-        )
-        ctx.stroke()
+        if (player.shieldCapacity > 0) {
+          // DRAW SHIELD
+          ctx.strokeStyle = player.color
+          if (Math.random() > (player.shieldCapacity / player.shieldCapacityMax)) {
+            ctx.strokeStyle = '#222'
+          }
+          ctx.lineWidth = 2
+          ctx.beginPath();
+          ctx.arc(
+            player.position.x,
+            player.position.y,
+            player.radius,
+            0, 2 * Math.PI, true
+          )
+          ctx.stroke()
+        }
 
         // DRAW SHIP triangle
         ctx.translate(player.position.x, player.position.y);
@@ -119,6 +128,59 @@
 
       }
 
+      let deathJitter = 1;
+      function drawPlayerCanvas(camera, ctx, player) {
+        const healthBarBorder = 30
+        let widthfraction
+
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, 0, camera.width, camera.height);
+        ctx.drawImage(
+          canvas,
+          // center camera on player
+          player.position.x - (camera.width / 2),
+          player.position.y - (camera.height / 2),
+          camera.width,
+          camera.height,
+          0,0,camera.width,camera.height
+        )
+
+        // draw loss text
+        if (!player.alive) {
+          ctx.fillStyle='white'
+          ctx.font = 'bold 48px serif';
+          deathJitter += Math.random() > 0.7 ? 1 : -1
+          if (deathJitter > 20) {
+            deathJitter = 20
+          }
+          if (deathJitter < 0) {
+            deathJitter = 2
+          }
+          ctx.fillText(
+            "YOU DIED",
+            camera.width / 2 + (deathJitter-Math.random()*2*deathJitter),
+            camera.height / 2 + (deathJitter-Math.random()*2*deathJitter)
+          )
+        } else if (player.shieldCapacity <= 0) {
+          // draw health bar
+          ctx.strokeStyle = player.color;
+          if (Math.random() > 0.5) {
+            ctx.strokeStyle = '#ddd';
+          }
+          ctx.strokeRect(healthBarBorder, healthBarBorder, camera.width - 2 * healthBarBorder, healthBarBorder);
+        } else {
+          ctx.strokeStyle = player.color;
+          ctx.strokeRect(healthBarBorder, healthBarBorder, camera.width - 2 * healthBarBorder, healthBarBorder);
+
+          ctx.fillStyle = player.color;
+          widthfraction = player.shieldCapacity / player.shieldCapacityMax;
+          ctx.fillRect(
+            healthBarBorder, healthBarBorder,
+            widthfraction*(camera.width-healthBarBorder-healthBarBorder), healthBarBorder
+          );
+        }
+      }
+
       function drawCanvas() {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -132,43 +194,20 @@
           ctx.fill();
         })
 
-
-        cam1ctx.fillStyle = '#333';
-        cam1ctx.fillRect(0, 0, camera1.width, camera1.height);
-        cam1ctx.drawImage(
-          canvas,
-          // center camera on player
-          player1.position.x - (camera1.width / 2),
-          player1.position.y - (camera1.height / 2),
-          camera1.width,
-          camera1.height,
-          0,0,camera1.width,camera1.height
-        )
-
-        cam2ctx.fillStyle = '#333';
-        cam2ctx.fillRect(0, 0, camera2.width, camera2.height);
-        cam2ctx.drawImage(
-          canvas,
-          // center camera on player
-          player2.position.x - (camera2.width / 2),
-          player2.position.y - (camera2.height / 2),
-          camera2.width,
-          camera2.height,
-          0,0,camera2.width,camera2.height
-        )
+        drawPlayerCanvas(camera1, cam1ctx, player1)
+        drawPlayerCanvas(camera2, cam2ctx, player2)
       }
-
 
       function step(time) {
         // mutate the state by 'time'
         world.step(time)
 
-        player1.act({
+        player1.step(time, {
           forward: consumeKey('w')- consumeKey('s'),
           rotate: consumeKey('d') - consumeKey('a'),
           grapple: consumeKey('q')
         })
-        player2.act({
+        player2.step(time, {
           forward: consumeKey('i')- consumeKey('k'),
           rotate: consumeKey('l') - consumeKey('j'),
           grapple: consumeKey('u')

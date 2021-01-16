@@ -6,6 +6,7 @@ class World {
     this.wallBounceFactor = 0.8
     this.objects = []
     this.starfield = []
+    this.debug = true
 
     const stars = 500
     const colorrange = [0,60,240];
@@ -43,7 +44,7 @@ class World {
   }
 
   step(ms) {
-    this.objects.forEach((object) => {
+    this.objects.forEach((object, idx) => {
       if (object.velocity) {
         // Check for 'out of bounds' collision.
         let nextPos = {
@@ -52,20 +53,59 @@ class World {
           radius: object.radius
         }
         const radius = object.radius || 0
-        const collider = this.objects.find((other) => (other != object) && distance(nextPos, other) < 0)
+        const collider = this.objects.slice(idx+1).find((other) => distance(nextPos, other) < 0)
         if (collider) {
           // if (this.speed(object.velocity) > 100) {
           //   alert('crash')
           // }
-          console.log('collision', object, collider, this.speed(object.velocity))
+          // console.log('collision', object, collider, this.speed(object.velocity))
 
           // Reverse velocity. TODO: a glancing crash should ricochet off
           // need to know how far off-centre it is for that to work.
 
           // collided!
-          let {v1, v2} = collisionVelocities(object.mass, collider.mass, object.velocity, collider.velocity)
-          object.velocity = v1
-          collider.velocity = v2
+          // collision angle:
+          // collisionNormal(object.position, collider.position)
+          // let {v1, v2} = collisionVelocities(object.mass, collider.mass, object.velocity, collider.velocity)
+
+          let normal = collisionNormal(object.position, collider.position)
+          let pc = parallelComponent(_collisionVelocity(object.velocity, collider.velocity), normal)
+
+          // perfect elasticity.
+          let elasticity = 0.5
+
+          // The collision causes an impulse (a near-infinite force applied over a nearzero time)
+          // such that the energy imparted is enough to stop (and then reflect, * 'e' elasticity)
+          // both objects along the parallel component.
+          let objectShareOfImpulse = (object.mass / (object.mass+collider.mass))
+          let colliderShareOfImpulse = (collider.mass / (object.mass+collider.mass))
+          let impulseMagnitude = elasticity*magnitude(pc)*(object.mass + collider.mass)
+
+          object.receiveHitWithImpulse && object.receiveHitWithImpulse(impulseMagnitude, elasticity)
+          collider.receiveHitWithImpulse && collider.receiveHitWithImpulse(impulseMagnitude, elasticity)
+
+          let objectVecChange = mulVec(impulseMagnitude/object.mass, toUnitVec(normal))
+          let colliderVecChange = mulVec(impulseMagnitude/collider.mass, toUnitVec(normal))
+
+          let combinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
+          let objectWas = object.velocity
+          let colliderWas = collider.velocity
+          object.velocity = addVec(object.velocity, objectVecChange)
+          collider.velocity = addVec(collider.velocity, mulVec(-1, colliderVecChange))
+
+          if (this.debug) {
+            console.table([
+              {mass: object.mass, radius: object.radius, prevx: objectWas.x, x: object.velocity.x, prevy: objectWas.y, y: object.velocity.y},
+              {mass: collider.mass, radius: collider.radius, prevx: colliderWas.x, x: collider.velocity.x, prevy: colliderWas.y, y: collider.velocity.y},
+            ])
+            let newCombinedMomentum = addVec(mulVec(object.mass, object.velocity), mulVec(collider.mass, collider.velocity))
+            if (Math.abs(combinedMomentum.x - newCombinedMomentum.x) > 0.0001) {
+              debugger
+            }
+            if (Math.abs(combinedMomentum.y - newCombinedMomentum.y) > 0.0001) {
+              debugger
+            }
+          }
 
           nextPos = {
             x: object.position.x + (object.velocity.x * ms / 1000.0),
@@ -74,19 +114,19 @@ class World {
           }
 
         } else if (nextPos.x < radius) {
-          console.log('hit the left wall')
-          nextPos.x = radius
-          object.velocity.x = -object.velocity.x * this.wallBounceFactor
+          console.log('hit the left wall', object.velocity.x * ms / 1000.0, object)
+          nextPos.x = radius // teleport back into bounds
+          object.velocity.x = -object.velocity.x * this.wallBounceFactor // stop moving towards the wall
         } else if ((this.width-radius) < nextPos.x) {
-          console.log('hit the right wall')
+          console.log('hit the right wall', object.velocity.x * ms / 1000.0, object)
           nextPos.x = this.width-radius
           object.velocity.x = -object.velocity.x * this.wallBounceFactor
         } else if (nextPos.y < radius) {
-          console.log('hit the top wall')
+          console.log('hit the top wall', object.velocity.y * ms / 1000.0, object)
           nextPos.y = radius
           object.velocity.y = -object.velocity.y * this.wallBounceFactor
         } else if ((this.height-radius) < nextPos.y) {
-          console.log('hit the bottom wall')
+          console.log('hit the bottom wall', object.velocity.y * ms / 1000.0, object)
           nextPos.y = this.height-radius
           object.velocity.y = -object.velocity.y * this.wallBounceFactor
         }
